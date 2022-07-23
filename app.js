@@ -2,6 +2,7 @@ import express from 'express';
 import connection from './database.js';
 import cors from 'cors';
 import joi from 'joi';
+import dayjs from 'dayjs';
 
 const app = express();
 app.use(express.json());
@@ -234,6 +235,208 @@ app.put('/customers/:id', async (req, res) => {
         console.error(err);
         res.sendStatus(500);
     }
+})
+
+
+app.post('/rentals', async (req, res)=> {
+    try{
+        const rental = req.body;
+        
+        const game = await connection.query(`SELECT "pricePerDay", "stockTotal" FROM games WHERE id = ${rental.gameId}`)
+        if(game.rowCount ===0){
+            res.status(400).send("game n existe")
+            return
+        }
+
+        const existingCustomer = await connection.query(`
+        SELECT id FROM customers WHERE id = ${rental.customerId}
+        `)
+        if(existingCustomer.rowCount ===0){
+            res.status(400).send("cliente n existe")
+            return
+        }
+
+        if(rental.daysRented <=0){
+            res.status(400).send("dias alugados deve ser maior que 0")
+            return
+        }
+
+        const available = await connection.query(`
+        SELECT * FROM rentals WHERE "gameId" = ${rental.gameId} AND "returnDate" = null`)
+        console.log(available.rowCount)
+        if(available.rowCount === game.rows[0].stockTotal){
+            res.status(400).send("jogo não disponível para aluguel")
+            return
+        }
+
+        rental.rentDate = dayjs(Date.now()).format('YYYY-MM-DD');
+        rental.originalPrice = game.rows[0].pricePerDay * rental.daysRented;
+        rental.returnDate = null;
+        rental.delayFee = null;
+        console.log(rental)
+
+        await connection.query(`
+        INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee")
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [rental.customerId, rental.gameId, rental.rentDate, rental.daysRented, rental.returnDate, rental.originalPrice, rental.delayFee])
+        
+
+        res.sendStatus(201)
+    }catch(err){
+        console.error(err);
+        res.sendStatus(500);        
+    }
+})
+
+app.get('/rentals', async (req, res)=> {
+    try{
+
+            const customerId = req.query.customerId;
+            console.log(customerId)
+            const gameId = req.query.gameId
+            console.log(gameId)
+
+            if(customerId !== undefined && gameId !== undefined){
+                const search = await connection.query(`
+            SELECT r.*,
+            jsonb_build_object('id', c.id, 'name', c.name) AS customer, 
+            jsonb_build_object('id',g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) AS game
+            
+            FROM rentals r
+            JOIN games g ON r."gameId" = g.id 
+            JOIN customers c ON r."customerId" = c.id
+            JOIN categories cat ON g."categoryId"= cat.id
+            WHERE r."customerId"= $1 AND r."gameId"= $2`, [customerId, gameId])
+                res.send(search.rows);
+                return
+            }
+
+
+           if(gameId!== undefined){
+                const search = await connection.query(`
+            SELECT r.*,
+            jsonb_build_object('id', c.id, 'name', c.name) AS customer, 
+            jsonb_build_object('id',g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) AS game
+            
+            FROM rentals r
+            JOIN games g ON r."gameId" = g.id 
+            JOIN customers c ON r."customerId" = c.id
+            JOIN categories cat ON g."categoryId"= cat.id
+            WHERE r."gameId"= $1`, [gameId])
+                res.send(search.rows);
+                return
+            }
+            
+           if(customerId !== undefined){
+                const search = await connection.query(`
+            SELECT r.*,
+            jsonb_build_object('id', c.id, 'name', c.name) AS customer, 
+            jsonb_build_object('id',g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) AS game
+            
+            FROM rentals r
+            JOIN games g ON r."gameId" = g.id 
+            JOIN customers c ON r."customerId" = c.id
+            JOIN categories cat ON g."categoryId"= cat.id
+            WHERE r."customerId"= $1`, [customerId])
+                res.send(search.rows);
+                return
+            }
+
+           
+
+            
+            const rentals = await connection.query(`
+            SELECT r.*,
+            jsonb_build_object('id', c.id, 'name', c.name) AS customer, 
+            jsonb_build_object('id',g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) AS game
+            
+            FROM rentals r
+            JOIN games g ON r."gameId" = g.id 
+            JOIN customers c ON r."customerId" = c.id
+            JOIN categories cat ON g."categoryId"= cat.id`)
+                    
+            
+            res.send(rentals.rows);    
+    }catch(err){
+        console.error(err)
+        res.sendStatus(500)
+    }
+})
+
+
+app.post('/rentals/:id/return', async (req, res) => {
+    try{
+        const id = req.params.id;
+
+        const existingRental = await connection.query(`
+        SELECT * FROM rentals WHERE id = ${id}
+        `)
+        if(existingRental.rowCount ===0){
+            res.status(404).send("Aluguel n existe")
+            return
+        }
+
+        if(existingRental.rows[0].returnDate !== null && existingRental.rows[0].delayFee !== null){
+            res.status(400).send("Aluguel já finalizado")
+        }
+        
+
+        const retDate = dayjs(Date.now()).format('YYYY-MM-DD');
+        const checkRent = await connection.query(`
+        SELECT "rentDate", "gameId", "daysRented" FROM rentals WHERE id = $1
+        `, [id])
+        const diff = (dayjs().diff(checkRent.rows[0].rentDate, 'day')) - checkRent.rows[0].daysRented;
+        const price = await connection.query(`
+        SELECT "pricePerDay" 
+        FROM games 
+        WHERE id = ${checkRent.rows[0].gameId}`)
+        
+        const fee = diff* price.rows[0].pricePerDay
+       
+        await connection.query(`
+        UPDATE 
+        rentals 
+        SET 
+        "returnDate" = '${retDate}',
+        "delayFee" = ${fee}
+        WHERE
+        id = $1
+        `, [id])
+
+        res.sendStatus(200)
+    }catch(err){
+        console.error(err)
+        res.sendStatus(500)
+    }
+})
+
+
+app.delete('/rentals/:id', async (req,res) => {
+    try{
+        const id =req.params.id
+        const existingRental = await connection.query(`
+        SELECT * FROM rentals WHERE id = ${id}
+        `)
+        if(existingRental.rowCount ===0){
+            res.status(404).send("Aluguel n existe")
+            return
+        }
+
+        if(existingRental.rows[0].returnDate === null && existingRental.rows[0].delayFee === null){
+            res.status(400).send("Aluguel ainda não finalizado")
+            return
+        }
+
+        await connection.query(`
+        DELETE FROM rentals WHERE id = $1
+        `, [id])
+
+        res.sendStatus(200)
+    }catch(err){
+        console.error(err)
+        res.sendStatus(500)
+    }
+
 })
 
 app.listen(4000, () => {
