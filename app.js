@@ -94,6 +94,15 @@ app.post('/games', async(req, res) => {
 
 app.get('/games', async (req, res) => {
     try{
+    
+    
+    const name = req.query.name;
+    console.log(name)
+    if(name !== undefined){
+        const search = await connection.query(`SELECT * FROM games WHERE LOWER (name) LIKE $1`, [`${name.toLocaleLowerCase()}%`])
+        res.send(search.rows);
+        return
+    }
      console.log(connection)
      const games = await connection.query('SELECT * FROM games;')
      
