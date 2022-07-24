@@ -5,7 +5,6 @@ import dayjs from 'dayjs';
 export async function createRental(req, res){
     try{
         const rental = res.locals.rental
-        console.log(rental)
         await connection.query(`
         INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee")
         VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -22,9 +21,7 @@ export async function getRentals (req, res){
     try{
 
             const customerId = req.query.customerId;
-            console.log(customerId)
             const gameId = req.query.gameId
-            console.log(gameId)
             let query = `
             SELECT r.*,
             jsonb_build_object('id', c.id, 'name', c.name) AS customer, 
@@ -114,12 +111,7 @@ export async function getRentals (req, res){
                 return
             }
 
-           console.log(query)
-
-            
             const rentals = await connection.query(query)
-                    
-            
             res.send(rentals.rows);    
     }catch(err){
         console.error(err)

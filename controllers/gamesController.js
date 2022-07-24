@@ -30,7 +30,6 @@ export async function getGames (req, res){
                 }
             }
 
-            console.log(name)
             if(name !== undefined){
                 const search = await connection.query(`
                 SELECT g.*, c.name AS "categoryName",
@@ -43,7 +42,6 @@ export async function getGames (req, res){
                 res.send(search.rows);
                 return
             }
-            console.log(connection)
             const games = await connection.query(query)
             
             res.send(games.rows);    

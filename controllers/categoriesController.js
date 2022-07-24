@@ -7,7 +7,6 @@ export async function getCategories (req, res){
      const offset= req.query.offset;
      const desc = req.query.desc
      const order = req.query.order;
-     console.log(query)
      if(limit){
          query += ` LIMIT ${limit}`
      }
@@ -20,7 +19,6 @@ export async function getCategories (req, res){
              query+=` DESC`
          }
      }
-     console.log(query)
      const categories = await connection.query(query)
      
      res.send(categories.rows);

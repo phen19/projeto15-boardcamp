@@ -6,7 +6,6 @@ async function validateGame(req, res, next){
    
     const validation = gamesSchema.validate(game,{abortEarly: false});
     if(validation.error){
-        console.log(validation.error)
         res.status(400).send(validation.error.details.map(item => item.message))
         return
     }

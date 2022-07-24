@@ -19,7 +19,6 @@ export async function createCustomer(req, res){
 export async function getCustomers (req, res){
     try{
             const cpf = req.query.cpf;
-            console.log(cpf)
             let query = `SELECT cus.*,
             COUNT(CASE WHEN r."customerId" = cus.id THEN cus.id END) AS "rentalsCount"
             FROM rentals r, customers cus
@@ -54,7 +53,6 @@ export async function getCustomers (req, res){
                 res.send(search.rows);
                 return
             }
-            console.log(connection)
             const games = await connection.query(query)
             
             res.send(games.rows);    
@@ -73,7 +71,6 @@ export async function getCustomerById (req, res){
             return res.sendStatus(400);
         }
         const search = await connection.query('SELECT * FROM customers WHERE id = $1;', [id])
-        console.log(search)
         if (search.rowCount == 0) {
             return res.sendStatus(404);
         }

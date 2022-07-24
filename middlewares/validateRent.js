@@ -26,7 +26,6 @@ export async function validateRent(req, res, next){
 
         const available = await connection.query(`
         SELECT * FROM rentals WHERE "gameId" = ${rental.gameId} AND "returnDate" = null`)
-        console.log(available.rowCount)
         if(available.rowCount === game.rows[0].stockTotal){
             res.status(400).send("jogo não disponível para aluguel")
             return
@@ -37,7 +36,6 @@ export async function validateRent(req, res, next){
         rental.returnDate = null;
         rental.delayFee = null;
         
-        console.log(rental)
         res.locals.rental= rental
         next()
     }catch(err){
