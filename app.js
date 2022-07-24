@@ -25,8 +25,11 @@ app.get('/categories', async (req, res) => {
     if(offset){
         query+= ` OFFSET ${offset}`
     }
-    if(desc){
-        query+=` ORDER BY name DESC`
+    if(order){
+        query+=` ORDER BY ${order}`
+        if(desc === 'true'){
+            query+=` DESC`
+        }
     }
     console.log(query)
     const categories = await connection.query(query)
@@ -114,6 +117,8 @@ app.get('/games', async (req, res) => {
             let query = 'SELECT g.*, c.name AS "categoryName" FROM games g JOIN categories c ON g."categoryId" = c.id'
             const limit = req.query.limit;
             const offset= req.query.offset;
+            const desc = req.query.desc
+            const order = req.query.order;
 
             if(limit){
                 query+= ` LIMIT ${limit}` 
@@ -121,6 +126,13 @@ app.get('/games', async (req, res) => {
 
             if(offset){
                 query+= ` OFFSET ${offset}`
+            }
+
+            if(order){
+                query+=` ORDER BY ${order}`
+                if(desc === 'true'){
+                    query+=` DESC`
+                }
             }
 
             console.log(name)
@@ -183,6 +195,8 @@ app.get('/customers', async (req, res) => {
             let query = `SELECT * FROM customers`
             const limit = req.query.limit;
             const offset= req.query.offset;
+            const desc = req.query.desc
+            const order = req.query.order;
 
             if(limit){
                 query+= ` LIMIT ${limit}` 
@@ -190,6 +204,13 @@ app.get('/customers', async (req, res) => {
 
             if(offset){
                 query+= ` OFFSET ${offset}`
+            }
+
+            if(order){
+                query+=` ORDER BY ${order}`
+                if(desc==='true'){
+                    query+=` DESC`
+                }
             }
 
             if(cpf !== undefined){
@@ -345,6 +366,22 @@ app.get('/rentals', async (req, res)=> {
             JOIN categories cat ON g."categoryId"= cat.id`
             const limit = req.query.limit;
             const offset= req.query.offset;
+            const desc = req.query.desc
+            const order = req.query.order;
+            const status = req.query.status;
+            const startDate = req.query.startDate;
+
+            if(status === 'open'){
+                query+= ` WHERE r."returnDate" IS NULL AND r."delayFee" IS NULL`
+            }
+
+            if(status === 'closed'){
+                query+= ` WHERE r."returnDate" IS NOT NULL AND r."delayFee" IS NOT NULL`
+            }
+
+            if(startDate){
+                query+= ` WHERE r."rentDate" >= '${startDate}'`
+            }
 
             if(limit){
                 query+= ` LIMIT ${limit}` 
@@ -353,7 +390,13 @@ app.get('/rentals', async (req, res)=> {
             if(offset){
                 query+= ` OFFSET ${offset}`
             }
-            
+
+            if(order){
+                query+=` ORDER BY ${order}`
+                if(desc==='true'){
+                    query+=` DESC`
+                }
+            }
 
             if(customerId !== undefined && gameId !== undefined){
                 const search = await connection.query(`
@@ -401,7 +444,7 @@ app.get('/rentals', async (req, res)=> {
                 return
             }
 
-           
+           console.log(query)
 
             
             const rentals = await connection.query(query)
