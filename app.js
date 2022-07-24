@@ -13,8 +13,23 @@ app.use(cors());
 
 app.get('/categories', async (req, res) => {
    try{
-    console.log(connection)
-    const categories = await connection.query('SELECT * FROM categories;')
+    let query = 'SELECT * FROM categories'
+    const limit = req.query.limit;
+    const offset= req.query.offset;
+    const desc = req.query.desc
+    const order = req.query.order;
+    console.log(query)
+    if(limit){
+        query += ` LIMIT ${limit}`
+    }
+    if(offset){
+        query+= ` OFFSET ${offset}`
+    }
+    if(desc){
+        query+=` ORDER BY name DESC`
+    }
+    console.log(query)
+    const categories = await connection.query(query)
     
     res.send(categories.rows);
 
@@ -96,14 +111,26 @@ app.post('/games', async(req, res) => {
 app.get('/games', async (req, res) => {
     try{
             const name = req.query.name;
+            let query = 'SELECT g.*, c.name AS "categoryName" FROM games g JOIN categories c ON g."categoryId" = c.id'
+            const limit = req.query.limit;
+            const offset= req.query.offset;
+
+            if(limit){
+                query+= ` LIMIT ${limit}` 
+            }
+
+            if(offset){
+                query+= ` OFFSET ${offset}`
+            }
+
             console.log(name)
             if(name !== undefined){
-                const search = await connection.query(`SELECT * FROM games WHERE LOWER (name) LIKE $1`, [`${name.toLocaleLowerCase()}%`])
+                const search = await connection.query(`SELECT g.*, c.name AS "categoryName" FROM games g JOIN categories c ON g."categoryId" = c.id WHERE LOWER (g.name) LIKE $1`, [`${name.toLocaleLowerCase()}%`])
                 res.send(search.rows);
                 return
             }
             console.log(connection)
-            const games = await connection.query('SELECT * FROM games;')
+            const games = await connection.query(query)
             
             res.send(games.rows);    
     } catch (err){
@@ -153,13 +180,25 @@ app.get('/customers', async (req, res) => {
     try{
             const cpf = req.query.cpf;
             console.log(cpf)
+            let query = `SELECT * FROM customers`
+            const limit = req.query.limit;
+            const offset= req.query.offset;
+
+            if(limit){
+                query+= ` LIMIT ${limit}` 
+            }
+
+            if(offset){
+                query+= ` OFFSET ${offset}`
+            }
+
             if(cpf !== undefined){
                 const search = await connection.query(`SELECT * FROM customers WHERE cpf LIKE $1`, [`${cpf}%`])
                 res.send(search.rows);
                 return
             }
             console.log(connection)
-            const games = await connection.query('SELECT * FROM customers;')
+            const games = await connection.query(query)
             
             res.send(games.rows);    
     } catch (err){
@@ -295,6 +334,26 @@ app.get('/rentals', async (req, res)=> {
             console.log(customerId)
             const gameId = req.query.gameId
             console.log(gameId)
+            let query = `
+            SELECT r.*,
+            jsonb_build_object('id', c.id, 'name', c.name) AS customer, 
+            jsonb_build_object('id',g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) AS game
+            
+            FROM rentals r
+            JOIN games g ON r."gameId" = g.id 
+            JOIN customers c ON r."customerId" = c.id
+            JOIN categories cat ON g."categoryId"= cat.id`
+            const limit = req.query.limit;
+            const offset= req.query.offset;
+
+            if(limit){
+                query+= ` LIMIT ${limit}` 
+            }
+
+            if(offset){
+                query+= ` OFFSET ${offset}`
+            }
+            
 
             if(customerId !== undefined && gameId !== undefined){
                 const search = await connection.query(`
@@ -345,15 +404,7 @@ app.get('/rentals', async (req, res)=> {
            
 
             
-            const rentals = await connection.query(`
-            SELECT r.*,
-            jsonb_build_object('id', c.id, 'name', c.name) AS customer, 
-            jsonb_build_object('id',g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) AS game
-            
-            FROM rentals r
-            JOIN games g ON r."gameId" = g.id 
-            JOIN customers c ON r."customerId" = c.id
-            JOIN categories cat ON g."categoryId"= cat.id`)
+            const rentals = await connection.query(query)
                     
             
             res.send(rentals.rows);    
